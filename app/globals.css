@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global game-style styles */
+.pulse {
+  animation: pulse 2s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 10px #00f, 0 0 20px #00f4; }
+  50% { box-shadow: 0 0 20px #00f, 0 0 30px #00f8; }
+  100% { box-shadow: 0 0 10px #00f, 0 0 20px #00f4; }
+}
