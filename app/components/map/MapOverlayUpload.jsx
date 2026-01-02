@@ -2,8 +2,8 @@
 import { useState } from 'react';
 import PhotoUploader from '../upload/PhotoUploader';
 import PopupResult from '../ui/PopupResult';
-import { classifyBin } from '@/lib/greenpt-pro';
-import { supabase } from '@/lib/supabase';
+import { classifyBin } from '../../lib/greenpt-pro';
+import { supabase } from '../../lib/supabase';
 
 export default function MapOverlayUpload({ isOpen, onClose, map }) {
   const [aiResult, setAiResult] = useState(null);

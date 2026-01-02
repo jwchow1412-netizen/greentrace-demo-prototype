@@ -6,10 +6,11 @@ import GameBinMarker from './GameBinMarker';
 import GameFAB from '../ui/GameFAB';
 import MapOverlayUpload from './MapOverlayUpload';
 // 1. 修正拼写错误（supabse → supabase）+ 改用相对路径
-import { supabase } from '../../../lib/supabase';
-import { getMockBins } from '../../../lib/mock-data';
+import { supabase } from '../../lib/supabase';
+import { getMockBins } from '../../lib/mock-data';
 
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+// ✅ 双重保险：优先读环境变量，读不到就用写死的有效Token，永不报错！
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4M29iazA2Z2gycXA4N2pmbDZmangifQ.-g_vE53SD2WrJ6tFX7QHmA";
 
 export default function MapContainer({ isDemoMode = false }) {
   const mapRef = useRef(null);
@@ -38,8 +39,8 @@ export default function MapContainer({ isDemoMode = false }) {
       const newMap = new mapboxgl.Map({
         container: mapRef.current,
         style: 'mapbox://styles/mapbox/light-v11',
-        center: [-73.9857, 40.7484],
-        zoom: 14,
+        center: [114.17, 22.32], // ✅ 香港经纬度 (之前是纽约，现在直接定位香港！)
+        zoom: 15, // 放大地图级别，直接看到垃圾桶标记
       });
 
       newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
