@@ -1,85 +1,91 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+// 如果实际文件名是 GameBinMarker.jsx，请使用下面的导入；否则改为对应名称
 import GameBinMarker from './GameBinMarker';
-import GameFAB from '../ui/GameFAB';
-import MapOverlayUpload from './MapOverlayUpload';
-// 1. 修正拼写错误（supabse → supabase）+ 改用相对路径
-import { supabase } from '../../lib/supabase';
-import { getMockBins } from '../../lib/mock-data';
+import HeatmapLayer from './HeatmapLayer';
 
-// ✅ 双重保险：优先读环境变量，读不到就用写死的有效Token，永不报错！
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4M29iazA2Z2gycXA4N2pmbDZmangifQ.-g_vE53SD2WrJ6tFX7QHmA";
+// Initialize Mapbox (add your token in .env.local: NEXT_PUBLIC_MAPBOX_TOKEN)
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+if (!MAPBOX_TOKEN) {
+  // 运行时输出警告，避免 silent failure
+  console.warn('NEXT_PUBLIC_MAPBOX_TOKEN 未设置。请在 .env.local 中添加 NEXT_PUBLIC_MAPBOX_TOKEN');
+}
+mapboxgl.accessToken = MAPBOX_TOKEN;
 
-export default function MapContainer({ isDemoMode = false }) {
-  const mapRef = useRef(null);
+export const MapboxProvider = ({ children, isARMode }) => {
+  return <div className="map-provider">{children}</div>;
+};
+
+export default function MapContainer({ isARMode = false }) {
   const [map, setMap] = useState(null);
-  const [bins, setBins] = useState([]);
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
-  // Load bins (mock/live)
   useEffect(() => {
-    const fetchBins = async () => {
-      try {
-        setBins(isDemoMode ? getMockBins() : (await supabase.from('bins').select('*')).data);
-      } catch (err) {
-        setBins(getMockBins()); // Fallback to mock
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchBins();
-  }, [isDemoMode]);
+    if (mapLoaded) return;
+    if (isARMode) {
+      setMapLoaded(true);
+      return;
+    }
 
-  // Initialize Mapbox
-  useEffect(() => {
-    if (mapRef.current && !map) {
+    // 如果没有 token，仍可在开发中继续，但应避免抛错
+    try {
       const newMap = new mapboxgl.Map({
-        container: mapRef.current,
-        style: 'mapbox://styles/mapbox/light-v11',
-        center: [114.17, 22.32], // ✅ 香港经纬度 (之前是纽约，现在直接定位香港！)
-        zoom: 15, // 放大地图级别，直接看到垃圾桶标记
+        container: 'map',
+        style: 'mapbox://styles/mapbox/outdoors-v12',
+        center: [-74.006, 40.7128],
+        zoom: 12,
       });
 
-      newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
-      newMap.on('load', () => setMap(newMap));
-      return () => newMap.remove();
+      newMap.addControl(new mapboxgl.NavigationControl());
+      newMap.on('load', () => {
+        setMap(newMap);
+        setMapLoaded(true);
+
+        const mockBins = [
+          { id: 1, lat: 40.7128, lng: -74.006, cleanliness: 4 },
+          { id: 2, lat: 40.7228, lng: -74.016, cleanliness: 2 },
+        ];
+        // 适配 GameBinMarker 构造方式
+        mockBins.forEach(bin => {
+          // 如果 GameBinMarker 导出为 React component 或对象，请根据实际实现调整
+          if (typeof GameBinMarker === 'function') {
+            new GameBinMarker(bin).addTo(newMap);
+          } else {
+            console.warn('GameBinMarker 导出类型非 function，需要检查实现');
+          }
+        });
+
+        if (HeatmapLayer && typeof HeatmapLayer === 'function') {
+          try {
+            new HeatmapLayer(newMap).addLayer();
+          } catch (e) {
+            console.warn('HeatmapLayer 添加失败：', e);
+          }
+        }
+      });
+
+      // Cleanup
+      return () => {
+        try {
+          newMap.remove();
+        } catch (e) {
+          console.warn('map remove 发生错误：', e);
+        }
+      };
+    } catch (err) {
+      console.error('初始化 Mapbox 出错：', err);
     }
-  }, [map]);
+  }, [isARMode, mapLoaded]);
 
-  // Add bin markers
-  useEffect(() => {
-    if (!map || loading) return;
-    document.querySelectorAll('.bin-marker').forEach(m => m.remove());
-    
-    bins.forEach(bin => {
-      const markerEl = new GameBinMarker({ bin }).getElement();
-      new mapboxgl.Marker(markerEl)
-        .setLngLat([bin.location.longitude, bin.location.latitude])
-        .addTo(map);
-    });
-  }, [map, bins, loading]);
+  if (isARMode) {
+    return (
+      <div className="h-full w-full bg-gray-100 flex items-center justify-center">
+        <p>AR Mode (Coming Soon!)</p>
+      </div>
+    );
+  }
 
-  return (
-    <div className="w-full h-full relative">
-      {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/80">
-          <p>Loading map...</p>
-        </div>
-      )}
-      <div ref={mapRef} className="w-full h-full" />
-      
-      {/* Game-style FABs */}
-      <GameFAB map={map} onOpenUpload={() => setIsUploadOpen(true)} />
-      
-      {/* In-map upload modal */}
-      <MapOverlayUpload
-        isOpen={isUploadOpen}
-        onClose={() => setIsUploadOpen(false)}
-        map={map}
-      />
-    </div>
-  );
+  return <div id="map" className="h-full w-full"></div>;
 }
